@@ -1,4 +1,3 @@
-#+TITLE: Whisper Engine - The Emacs-powered Static Site Generator
 #+AUTHOR: DeadSwitch | The Silent Architect
 #+DATE: <2025-07-31 Thu>
 #+OPTIONS: toc:nil num:nil \n:t
@@ -6,7 +5,7 @@
 
 * Whisper Engine - The Emacs-powered Static Site Generator
 [[https://opensource.org/licenses/MIT][https://img.shields.io/badge/license-MIT-blue.svg]]
-[[https://www.gnu.org/software/emacs/][https://img.shields.io/badge/Made%20with-Emacs-purple]]
+
 *Whisper Engine*: Minimalist, Emacs-powered static site generator. No JS. No telemetry. No noise.
 
 Only one-way signal for those who require simplicity.
