@@ -1,6 +1,6 @@
 ;;
 ;; Whisper Engine - The Ghost Operator Site Generator
-;; v0.0.8
+;; v0.0.9
 ;;
 
 ;; Configuration
@@ -19,6 +19,38 @@
 
 (defvar ds/site-url "https://site-url.tld"
   "The URL of the site.")
+
+(defvar ds/html-nav
+  "<nav>
+     <a href=\"/index.html\">Home</a> |
+     <a href=\"/static/services.html\">Services</a> |
+     <a href=\"/static/about.html\">About</a>
+   </nav>"
+  "HTML snippet for navigation bar.")
+
+(defvar ds/html-footer
+  "<footer><p>© 2025 DeadSwitch | The Ghost Operator | All rights reserved.</p></footer>"
+  "HTML snippet for footer.")
+
+(defvar ds/base-html-template
+  "<!DOCTYPE html>
+<html lang=\"en\">
+<head>
+  <meta charset=\"UTF-8\">
+  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
+  <title>%s</title>
+  <link rel=\"stylesheet\" href=\"/static/style.css\">
+  <link rel=\"icon\" href=\"/static/favicon.ico\" type=\"image/x-icon\">
+  %s
+</head>
+<body>
+  %s
+  <main><div class=\"article-content\">%s</div></main>
+  %s
+</body>
+</html>"
+  "Base HTML template for Whisper Engine static pages.
+Placeholders: title, og-tags, navigation, body-html, footer.")
 
 ;; Extract the keywords and metadata
 
@@ -209,32 +241,15 @@
 
 (defun ds/write-static-page (filepath title body-html &optional meta)
   "Wrap BODY-HTML with navigation and footer, then write to FILEPATH."
-  (let* ((nav    "<nav><a href=\"/index.html\">Home</a>")
-         (footer "<footer><p>© 2025 DeadSwitch | The Whisper Engine | All rights reserved.</p></footer>")
-         ;; Generate OG tags (if provided)
-         (og-tags (when meta
+  (let* ((og-tags (when meta
                     (mapconcat
                      (lambda (pair)
                        (format "<meta property=\"%s\" content=\"%s\" />"
                                (car pair) (cdr pair)))
                      meta
                      "\n ")))
-         (html   (format "<!DOCTYPE html>
-<html lang=\"en\">
-<head>
-  <meta charset=\"UTF-8\">
-  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
-  <title>%s</title>
-  <link rel=\"stylesheet\" href=\"/static/style.css\">
-  <link rel=\"icon\" href=\"/static/favicon.ico\" type=\"image/x-icon\">
-  %s
-</head>
-<body>
-  %s
-  <main><div class=\"article-content\">%s</div></main>
-  %s
-</body>
-</html>" title (or og-tags "") nav body-html footer)))
+         (html   (format ds/base-html-template
+                         title (or og-tags "") ds/html-nav body-html ds/html-footer)))
     (with-temp-file filepath
       (insert html))))
 
