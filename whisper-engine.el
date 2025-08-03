@@ -1,6 +1,6 @@
 ;;
 ;; Whisper Engine - The Ghost Operator Site Generator
-;; v0.0.9
+;; v0.0.10
 ;;
 
 ;; Configuration
@@ -35,6 +35,7 @@
 (defvar ds/base-html-template
   "<!DOCTYPE html>
 <html lang=\"en\">
+<!-- Generated with Whisper Engine v0.0.10 -->
 <head>
   <meta charset=\"UTF-8\">
   <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
@@ -256,48 +257,24 @@ Placeholders: title, og-tags, navigation, body-html, footer.")
 ;; Pagination
 
 (defun ds/generate-pagination-links (current total)
-  "Generate clean, scalable pagination links for blog index."
-  (let ((range-size 5)
-        (links '()))
-    (push (if (> current 1)
-              (format "<a href=\"/%s\">Prev</a>" 
-                      (if (= (1- current) 1) "index.html" (format "page%d.html" (1- current))))
-            "<span class=\"disabled\">Prev</span>")
-          links)
-
-    ;; First page and leading ellipsis
-    (when (> current (- range-size 1))
-      (push "<a href=\"/index.html\">1</a>" links)
-      (when (> current range-size)
-        (push "<span class=\"ellipsis\">…</span>" links)))
-
-    ;; Page number window
-    (let* ((start (max 1 (- current 2)))
-           (end   (min total (+ current 2))))
-      (dotimes (i (- (1+ end) start))
-        (let ((page (+ start i)))
-          (push (if (= page current)
-                    (format "<span class=\"current\">%d</span>" page)
-                  (format "<a href=\"/%s\">%d</a>"
-                          (if (= page 1) "index.html" (format "page%d.html" page)) page))
-                links))))
-
-    ;; Trailing ellipsis and last page
-    (when (< current (- total (- range-size 2)))
-      (when (< current (- total 3))
-        (push "<span class=\"ellipsis\">…</span>" links))
-      (push (format "<a href=\"/page%d.html\">%d</a>" total total) links))
-
-    ;; Next link
-    (push (if (< current total)
-              (format "<a href=\"/%s\">Next</a>"
-                      (format (if (= (1+ current) 1) "index.html" "page%d.html") (1+ current)))
-            "<span class=\"disabled\">Next</span>")
-          links)
-
-    ;; Final HTML
-    (format "<nav class=\"pagination\">%s</nav>"
-            (string-join (reverse links) " "))))
+  "Generate simple pagination: First | Prev | X / N | Next | Last."
+  (let ((first-link (if (> current 1)
+                        "<a href=\"/index.html\">First</a>"
+                      "<span class=\"disabled\">First</span>"))
+        (prev-link  (if (> current 1)
+                        (format "<a href=\"/%s\">Prev</a>"
+                                (if (= (1- current) 1) "index.html" (format "page%d.html" (1- current))))
+                      "<span class=\"disabled\">Prev</span>"))
+        (next-link  (if (< current total)
+                        (format "<a href=\"/%s\">Next</a>"
+                                (if (= (1+ current) 1) "index.html" (format "page%d.html" (1+ current))))
+                      "<span class=\"disabled\">Next</span>"))
+        (last-link  (if (< current total)
+                        (format "<a href=\"/page%d.html\">Last</a>" total)
+                      "<span class=\"disabled\">Last</span>"))
+        (counter    (format "<span class=\"counter\">%d / %d</span>" current total)))
+    (format "<nav class=\"pagination\">%s %s %s %s %s</nav>"
+            first-link prev-link counter next-link last-link)))
 
 (defun ds/generate-paginated-index ()
   "Generate paginated blog index pages."
