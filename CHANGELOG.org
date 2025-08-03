@@ -1,12 +1,12 @@
 #+TITLE: Whisper Engine Change Log
 #+AUTHOR: DeadSwitch | The Silent Architect
 #+DATE: <2025-08-03 Sun>
-#+OPTIONS: toc:nil num:nil \n:t
+#+OPTIONS: toc:nil num:nil \n:t title:nil
 #+EXPORT_FILE_NAME: /home/iron/stuff/article-export/CHANGELOG
-#+READY_FOR_DEPLOY: nil
+#+READY_FOR_DEPLOY: t
 
 * Whisper Engine Change Log
 
-* <2025-08-03 Sun> - *0.0.10*
+** <2025-08-03 Sun> - *0.0.10*
 - The pagination is simplified to "First | Prev | X / N | Next | Last".
 - The /default/ HTML body template contains the Whisper Engine version (for debugging).
