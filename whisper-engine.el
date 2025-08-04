@@ -1,9 +1,18 @@
 ;;
 ;; Whisper Engine - The Ghost Operator Site Generator
-;; v0.0.10
+;; v0.1.0
 ;;
 
-;; Configuration
+;;; -----------------------------
+;;; Configuration
+;;; -----------------------------
+
+(defvar ds/cache-file
+  "/path/to/whisper-cache.el"
+  "Path to the Whisper Engine cache file storing file hashes and HTML paths.")
+
+(defvar ds/cache-data nil
+  "In-memory representation of the cache as an alist.")
 
 (defvar ds/public-article-dir "/path/to/public-html-dir"
   "Public directory where the HTML files will be generated.")
@@ -35,7 +44,7 @@
 (defvar ds/base-html-template
   "<!DOCTYPE html>
 <html lang=\"en\">
-<!-- Generated with Whisper Engine v0.0.10 -->
+<!-- Generated with Whisper Engine v0.1.0 -->
 <head>
   <meta charset=\"UTF-8\">
   <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
@@ -53,7 +62,55 @@
   "Base HTML template for Whisper Engine static pages.
 Placeholders: title, og-tags, navigation, body-html, footer.")
 
-;; Extract the keywords and metadata
+;;; -----------------------------
+;;; Cache management
+;;; -----------------------------
+
+(defun ds/load-cache ()
+  "Load the Whisper Engine cache from 'ds/cache-file'."
+  (when (file-exists-p ds/cache-file)
+    (with-temp-buffer
+      (insert-file-contents ds/cache-file)
+      (goto-char (point-min))
+      (setq ds/cache-data (read (current-buffer))))))
+
+(defun ds/save-cache ()
+  "Save the current 'ds/cache-data' to 'ds/cache-file'."
+  (with-temp-file ds/cache-file
+    (prin1 ds/cache-data (current-buffer))))
+
+(defun ds/get-cache-entry (file)
+  "Return cache entry for FILE or nil if missing."
+  (assoc file ds/cache-data))
+
+(defun ds/update-cache-entry (file hash html-path)
+  "Update cache entry for FILE with HASH and HTML-PATH."
+  (let ((entry (ds/get-cache-entry file)))
+    (if entry
+        (setcdr entry (list :hash hash :html html-path))
+      (push (cons file (list :hash hash :html html-path)) ds/cache-data))))
+
+(defun ds/remove-cache-entry (file)
+  "Remove FILE from cache."
+  (setq ds/cache-data (assq-delete-all file ds/cache-data)))
+
+;;; -----------------------------
+;;; File hashing
+;;; -----------------------------
+
+(defun ds/file-hash (file)
+  "Return SHA256 hash of FILE contents using secure-hash."
+  (with-temp-buffer
+    (insert-file-contents file)
+    (secure-hash 'sha256 (current-buffer))))
+
+(defun ds/file-changed-p (file hash)
+  "Return t if FILE has changed compared to HASH."
+  (not (string= (ds/file-hash file) hash)))
+
+;;; -----------------------------
+;;; Extract the keywords and metadata
+;;; -----------------------------
 
 (defun ds/extract-keywords (file keywords)
   "Extract the keywords from an org article."
@@ -81,22 +138,13 @@ Placeholders: title, og-tags, navigation, body-html, footer.")
   "Get property as string."
   (cdr (assoc property properties)))
 
-;; Find and filter the posts
-
-(defun ds/find-posts (dir)
-  "Return the HTML files in a dir structure."
-  (directory-files-recursively dir "\\.html$"))
+;;; -----------------------------
+;;; Find and filter the posts
+;;; -----------------------------
 
 (defun ds/find-org-posts (dir)
   "Find all .org articles in a dir structure.."
   (directory-files-recursively dir "\\.org$"))
-
-(defun ds/count-files (files)
-  "Count the HTML files."
-  (let ((count 0))
-    (dolist (file files count)
-      (when (file-exists-p file)
-        (setq count (1+ count))))))
 
 (defun ds/page-count (file-count)
   "Calculate how many pages are needed for FILE-COUNT."
@@ -116,7 +164,9 @@ Placeholders: title, og-tags, navigation, body-html, footer.")
             properties
             `(("EXPORT_URL" . ,export-url)))))
 
-;; Exporting
+;;; -----------------------------
+;;; Cleanup functions
+;;; -----------------------------
 
 (defun ds/ready-for-deploy-p (file)
   "Return t if FILE has #+READY_FOR_DEPLOY: t."
@@ -178,48 +228,71 @@ Placeholders: title, og-tags, navigation, body-html, footer.")
    ;; If it's not a tag (e.g., string, nil), return as-is
    (t dom)))
 
-(defun ds/export-article (file)
-  "Export .org article to wrapped HTML."
-  (unless (libxml-available-p)
-    (error "libxml support is required but not available in this Emacs"))
+;;; -----------------------------
+;;; Incremental export logic
+;;; -----------------------------
 
-  (let* ((metadata (ds/build-post-metadata file))
-         (date-str (ds/get-keyword "DATE" metadata))
-         (title    (ds/get-keyword "TITLE" metadata))
-         (teaser   (ds/get-property "TEASER" metadata))
-         (image    (ds/get-property "IMAGE" metadata))
-         (export-url (ds/get-keyword "EXPORT_URL" metadata))
-         (year     (format-time-string "%Y" (org-time-string-to-time date-str)))
-         (month    (format-time-string "%m" (org-time-string-to-time date-str)))
-         (basename (file-name-base file))
-         (target-dir (expand-file-name (format "%s/%s" year month) ds/public-article-dir))
-         (target-file (expand-file-name (format "%s.html" basename) target-dir)))
-    
-    (make-directory target-dir t)
+(defun ds/export-article-incremental (file)
+  "Export FILE if it's new or changed. Return HTML path or nil if skipped."
+  (let* ((current-hash (ds/file-hash file))
+         (entry        (ds/get-cache-entry file))
+         (changed      (or (not entry)
+                           (ds/file-changed-p file (plist-get (cdr entry) :hash)))))
+    (if changed
+        (let* ((metadata    (ds/build-post-metadata file))
+               (date-str    (ds/get-keyword "DATE" metadata))
+               (export-url  (ds/get-keyword "EXPORT_URL" metadata))
+               (year        (format-time-string "%Y" (org-time-string-to-time date-str)))
+               (month       (format-time-string "%m" (org-time-string-to-time date-str)))
+               (basename    (file-name-base file))
+               (target-dir  (expand-file-name (format "%s/%s" year month) ds/public-article-dir))
+               (target-file (expand-file-name (format "%s.html" basename) target-dir)))
+          (message "[Whisper] Exporting changed/new article: %s" file)
+          (make-directory target-dir t)
+          ;; Export using existing ds/export-article logic but inline:
+          (let ((html-body
+                 (with-temp-buffer
+                   (insert-file-contents file)
+                   (org-mode)
+                   (let* ((raw-html (org-export-as 'html nil nil t nil)))
+                     (with-temp-buffer
+                       (insert raw-html)
+                       (goto-char (point-min))
+                       (let* ((dom (libxml-parse-html-region (point-min) (point-max)))
+                              (patched-dom (ds/remove-id-attributes dom))
+                              (body (car (dom-by-tag patched-dom 'body)))
+                              (body-children (cddr body))
+                              (patched-body (ds/fix-image-paths body-children))
+                              (inner-html (ds/fix-self-closing-tags
+                                           (ds/fix-broken-brs (shr-dom-to-xml patched-body)))))
+                         (ds/patch-src-containers-with-lang inner-html)))))))
+            ;; Build OG meta tags
+            (let* ((title (ds/get-keyword "TITLE" metadata))
+                   (teaser (ds/get-property "TEASER" metadata))
+                   (image (ds/get-property "IMAGE" metadata))
+                   (meta `(("og:title" . ,(ds/get-keyword "TITLE" metadata))
+                           ("og:description" . ,(or teaser "A DeadSwitch Whisper"))
+                           ("og:image" . ,(or image "/static/img/default.jpg"))
+                           ("og:url" . ,(format "%s/%s" ds/site-url export-url)))))
+              (ds/write-static-page target-file title html-body meta)))
+          ;; Update cache
+          (ds/update-cache-entry file current-hash (format "%s/%s/%s.html" year month basename))
+          target-file)
+      (progn
+        (message "[Whisper] Skipping unchanged file: %s" file)
+        nil))))
 
-    (let ((html-body
-           (with-temp-buffer
-             (insert-file-contents file)
-             (org-mode)
-             (let* ((raw-html (org-export-as 'html nil nil t nil)))
-               (with-temp-buffer
-                 (insert raw-html)
-                 (goto-char (point-min))
-                 (let* ((dom (libxml-parse-html-region (point-min) (point-max)))
-                        (patched-dom (ds/remove-id-attributes dom))
-                        (body (car (dom-by-tag patched-dom 'body)))
-                        (body-children (cddr body))
-                        (patched-body (ds/fix-image-paths body-children))
-                        (inner-html (ds/fix-self-closing-tags
-                                     (ds/fix-broken-brs (shr-dom-to-xml patched-body)))))
-                   (ds/patch-src-containers-with-lang inner-html)))))))
-
-      ;; Build OG meta tags
-      (let ((meta `(("og:title" . ,title)
-                    ("og:description" . ,(or teaser "A DeadSwitch Whisper"))
-                    ("og:image" . ,(or image "/static/img/default.jpg"))
-                    ("og:url" . ,(format "%s/%s" ds/site-url export-url)))))
-        (ds/write-static-page target-file title html-body meta)))))
+(defun ds/remove-orphan-html ()
+  "Remove HTML files from cache that have no corresponding .org file."
+  (dolist (entry ds/cache-data)
+    (let ((file (car entry))
+          (html-path (plist-get (cdr entry) :html)))
+      (unless (file-exists-p file)
+        (let ((full-html (expand-file-name html-path ds/public-article-dir)))
+          (when (file-exists-p full-html)
+            (message "[Whisper] Removing orphaned HTML: %s" full-html)
+            (delete-file full-html)))
+        (ds/remove-cache-entry file)))))
 
 (defun ds/export-all-ready-articles ()
   "Export all deploy-ready articles to HTML."
@@ -238,7 +311,9 @@ Placeholders: title, og-tags, navigation, body-html, footer.")
           (> (ds/parse-date (ds/get-keyword "DATE" a))
              (ds/parse-date (ds/get-keyword "DATE" b))))))
 
-;; Page building
+;;; -----------------------------
+;;; Build the static page
+;;; -----------------------------
 
 (defun ds/write-static-page (filepath title body-html &optional meta)
   "Wrap BODY-HTML with navigation and footer, then write to FILEPATH."
@@ -254,7 +329,9 @@ Placeholders: title, og-tags, navigation, body-html, footer.")
     (with-temp-file filepath
       (insert html))))
 
-;; Pagination
+;;; -----------------------------
+;;; Pagination
+;;; -----------------------------
 
 (defun ds/generate-pagination-links (current total)
   "Generate simple pagination: First | Prev | X / N | Next | Last."
@@ -315,7 +392,9 @@ Placeholders: title, og-tags, navigation, body-html, footer.")
                                   (ds/generate-pagination-links page total-pages))))
                (ds/write-static-page filepath ds/index-title body)))))
 
-;; Clean up the public dir
+;;; -----------------------------
+;;; Clean up the public html dir
+;;; -----------------------------
 
 (defun ds/clean-public-html ()
   "Delete all generated HTML files in ds/public-article-dir except static/ directory."
@@ -332,7 +411,9 @@ Placeholders: title, og-tags, navigation, body-html, footer.")
                 (delete-directory file t)
               (delete-file file))))))))
 
-;; User facing functions
+;;; -----------------------------
+;;; User facing functions
+;;; -----------------------------
 
 (defun whisper/add-site-element ()
   "Insert Whisper Engine site element interactively, with value prompts."
@@ -345,12 +426,28 @@ Placeholders: title, og-tags, navigation, body-html, footer.")
          (value (read-string (format "Enter value for %s: " choice))))
     (insert (format template value))))
 
-;; Generate the site
+;;; -----------------------------
+;;; Generate the site
+;;; -----------------------------
 
-(defun ds/generate-site ()
-  (interactive)
-  (ds/clean-public-html)
-  (ds/export-all-ready-articles)
-  (ds/generate-paginated-index))
-
-;; (ds/generate-site)
+(defun ds/generate-site (&optional force)
+  "Generate the site incrementally.
+If FORCE is non-nil, do a full rebuild."
+  (interactive "P")
+  (ds/load-cache)
+  (if force
+      (progn
+        (message "[Whisper] Full rebuild initiated...")
+        (ds/clean-public-html)
+        (setq ds/cache-data nil)))
+  ;; Export only changed/new files
+  (dolist (file (ds/find-org-posts ds/org-article-dir))
+    (when (ds/ready-for-deploy-p file)
+      (ds/export-article-incremental file)))
+  ;; Remove orphaned HTML
+  (ds/remove-orphan-html)
+  ;; Rebuild index pages
+  (ds/generate-paginated-index)
+  ;; Save updated cache
+  (ds/save-cache)
+  (message "[Whisper] Incremental build complete."))

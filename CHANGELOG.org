@@ -1,10 +1,19 @@
 #+TITLE: Whisper Engine Change Log
 #+AUTHOR: DeadSwitch | The Silent Architect
-#+DATE: <2025-08-03 Sun>
+#+DATE: <2025-08-04 Mon>
 #+OPTIONS: toc:nil num:nil \n:t title:nil
-#+EXPORT_FILE_NAME: /home/iron/stuff/article-export/CHANGELOG
+#+EXPORT_FILE_NAME: CHANGELOG
 #+READY_FOR_DEPLOY: t
 
+* Whisper Engine Changelog
+This document tracks all notable changes to Whisper Engine.
+
+Source: [[https://github.com/deadswitch404/whisper-engine][Whisper Engine on GitHub]]
+Versioning: Follows Semantic Versioning (https://semver.org/)
+
+** <2025-08-04 Mon> - *0.1.0*
+- SHA256-based file hash building for integrity and speed.
+- Incremental site generation.
 ** <2025-08-03 Sun> - *0.0.10*
 - The pagination is simplified to "First | Prev | X / N | Next | Last".
 - The /default/ HTML body template contains the Whisper Engine version (for debugging).
