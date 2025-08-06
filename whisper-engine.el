@@ -1,6 +1,6 @@
 ;;
 ;; Whisper Engine - The Ghost Operator Site Generator
-;; v0.1.0
+;; v0.2.0
 ;;
 
 ;;; -----------------------------
@@ -32,8 +32,7 @@
 (defvar ds/html-nav
   "<nav>
      <a href=\"/index.html\">Home</a> |
-     <a href=\"/static/services.html\">Services</a> |
-     <a href=\"/static/about.html\">About</a>
+     <a href=\"/categories.html\">Categories</a> |
    </nav>"
   "HTML snippet for navigation bar.")
 
@@ -44,7 +43,7 @@
 (defvar ds/base-html-template
   "<!DOCTYPE html>
 <html lang=\"en\">
-<!-- Generated with Whisper Engine v0.1.0 -->
+<!-- Generated with Whisper Engine v0.2.0 -->
 <head>
   <meta charset=\"UTF-8\">
   <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
@@ -152,7 +151,7 @@ Placeholders: title, og-tags, navigation, body-html, footer.")
 
 (defun ds/build-post-metadata (file)
   "Extract metadata and compute EXPORT_URL from the .org file."
-  (let* ((raw-keywords (or (ds/extract-keywords file '("TITLE" "DATE")) '()))
+  (let* ((raw-keywords (or (ds/extract-keywords file '("TITLE" "DATE" "CATEGORY")) '()))
          (keywords (mapcar (lambda (pair) (cons (car pair) (cadr pair))) raw-keywords)) ; fix!
          (properties (or (ds/extract-properties file) '()))
          (date-str (cdr (assoc "DATE" keywords)))
@@ -165,7 +164,7 @@ Placeholders: title, og-tags, navigation, body-html, footer.")
             `(("EXPORT_URL" . ,export-url)))))
 
 ;;; -----------------------------
-;;; Cleanup functions
+;;; Cleanup functions and filters
 ;;; -----------------------------
 
 (defun ds/ready-for-deploy-p (file)
@@ -227,6 +226,12 @@ Placeholders: title, og-tags, navigation, body-html, footer.")
       (cons tag (cons clean-attrs clean-children))))
    ;; If it's not a tag (e.g., string, nil), return as-is
    (t dom)))
+
+(defun ds/fix-category-string (category)
+  "Return CATEGORY if non-empty and not '???', else return 'General'."
+  (if (and category (not (string= category "???")) (not (string= category "")))
+      category
+    "General"))
 
 ;;; -----------------------------
 ;;; Incremental export logic
@@ -312,7 +317,7 @@ Placeholders: title, og-tags, navigation, body-html, footer.")
              (ds/parse-date (ds/get-keyword "DATE" b))))))
 
 ;;; -----------------------------
-;;; Build the static page
+;;; Build the static pages
 ;;; -----------------------------
 
 (defun ds/write-static-page (filepath title body-html &optional meta)
@@ -330,7 +335,7 @@ Placeholders: title, og-tags, navigation, body-html, footer.")
       (insert html))))
 
 ;;; -----------------------------
-;;; Pagination
+;;; Pagination feature
 ;;; -----------------------------
 
 (defun ds/generate-pagination-links (current total)
@@ -372,12 +377,15 @@ Placeholders: title, og-tags, navigation, body-html, footer.")
                         (let ((title  (ds/get-keyword "TITLE" meta))
                               (date   (ds/get-keyword "DATE" meta))
                               (url    (ds/get-keyword "EXPORT_URL" meta))
-                              (teaser (ds/get-property "TEASER" meta))
-                              (image  (ds/get-property "IMAGE" meta)))
-                          (format "<li class=\"article-list\"><a href=\"/%s\">%s</a><span class=\"date\">%s</span>%s%s</li>"
+                              (category (ds/fix-category-string (ds/get-keyword "CATEGORY" meta)))
+                              (teaser   (ds/get-property "TEASER" meta))
+                              (image    (ds/get-property "IMAGE" meta)))
+                          (format "<li class=\"article-list\"><a href=\"/%s\">%s</a><span class=\"date\">%s</span><br />%s%s%s</li>"
                                   url
                                   title
                                   date
+                                  (if category
+                                      (format "<div class=\"category\"><b>Category:</b> %s</div>" category))
                                   (if image
                                       (format "<img src=\"%s\" alt=\"%s thumbnail\" class=\"thumb\">" image title)
                                     "")
@@ -391,6 +399,55 @@ Placeholders: title, og-tags, navigation, body-html, footer.")
                                   items
                                   (ds/generate-pagination-links page total-pages))))
                (ds/write-static-page filepath ds/index-title body)))))
+
+(defun ds/generate-categories-page (posts)
+  "Generate a categories overview page listing all categories."
+  (let* ((categories
+          (delete-dups
+           (delq nil
+                 (mapcar (lambda (meta)
+                           (ds/fix-category-string (ds/get-keyword "CATEGORY" meta)))
+                         posts))))
+         (category-links
+          (mapconcat
+           (lambda (cat)
+             (format "<li><a href=\"/category-%s.html\">%s</a></li>"
+                     (downcase (replace-regexp-in-string " " "-" cat)) cat))
+           categories
+           "\n"))
+         (filepath (expand-file-name "categories.html" ds/public-article-dir))
+         (body (format "<h1>Categories</h1><ul>%s</ul>" category-links)))
+    (ds/write-static-page filepath "Categories" body)))
+
+(defun ds/generate-category-pages (posts)
+  "Generate static pages for each category, using normalized category names."
+  (let ((categories
+         (delete-dups
+          (delq nil
+                (mapcar (lambda (meta)
+                          (ds/fix-category-string (ds/get-keyword "CATEGORY" meta)))
+                        posts)))))
+    (dolist (cat categories)
+      (let* ((slug (downcase (replace-regexp-in-string " " "-" cat)))
+             (filename (format "category-%s.html" slug))
+             (filepath (expand-file-name filename ds/public-article-dir))
+             (cat-posts
+              (seq-filter (lambda (meta)
+                            (string= (ds/fix-category-string (ds/get-keyword "CATEGORY" meta)) cat))
+                          posts))
+             (items
+              (mapconcat
+               (lambda (meta)
+                 (format "<li><a href='/%s'>%s</a><span class='date'>%s</span></li>"
+                         (ds/get-keyword "EXPORT_URL" meta)
+                         (ds/get-keyword "TITLE" meta)
+                         (ds/get-keyword "DATE" meta)))
+               cat-posts
+               "\n")))
+        (ds/write-static-page
+         filepath
+         (format "Category: %s" cat)
+         (format "<h1>Category: %s</h1><ul>%s</ul>" cat items))))))
 
 ;;; -----------------------------
 ;;; Clean up the public html dir
@@ -431,8 +488,7 @@ Placeholders: title, og-tags, navigation, body-html, footer.")
 ;;; -----------------------------
 
 (defun ds/generate-site (&optional force)
-  "Generate the site incrementally.
-If FORCE is non-nil, do a full rebuild."
+  "Generate the site incrementally. If FORCE is non-nil, do a full rebuild."
   (interactive "P")
   (ds/load-cache)
   (if force
@@ -440,14 +496,20 @@ If FORCE is non-nil, do a full rebuild."
         (message "[Whisper] Full rebuild initiated...")
         (ds/clean-public-html)
         (setq ds/cache-data nil)))
-  ;; Export only changed/new files
+  ;; Export changed/new files
   (dolist (file (ds/find-org-posts ds/org-article-dir))
     (when (ds/ready-for-deploy-p file)
       (ds/export-article-incremental file)))
   ;; Remove orphaned HTML
   (ds/remove-orphan-html)
-  ;; Rebuild index pages
-  (ds/generate-paginated-index)
+  ;; Collect posts
+  (let ((sorted-posts (ds/collect-sorted-posts)))
+    ;; Rebuild index pages
+    (ds/generate-paginated-index)
+    ;; Rebuild category pages
+    (ds/generate-category-pages sorted-posts)
+    ;; Rebuild categories overview
+    (ds/generate-categories-page sorted-posts))
   ;; Save updated cache
   (ds/save-cache)
   (message "[Whisper] Incremental build complete."))

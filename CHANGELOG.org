@@ -11,6 +11,12 @@ This document tracks all notable changes to Whisper Engine.
 Source: [[https://github.com/deadswitch404/whisper-engine][Whisper Engine on GitHub]]
 Versioning: Follows Semantic Versioning (https://semver.org/)
 
+** <2025-08-06 Wed> - *0.2.0*
+- Categories are now parsed from Org keywords.
+- Generated dedicated category pages for each category.
+- Added global =categories.html= index linking to all category pages.
+- Articles now display their category on index pages.
+- Empty or placeholder categories =(???)= default to General.
 ** <2025-08-04 Mon> - *0.1.0*
 - SHA256-based file hash building for integrity and speed.
 - Incremental site generation.

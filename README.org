@@ -4,15 +4,13 @@
 #+READY_FOR_DEPLOY: t
 
 * Whisper Engine - The Emacs-powered Static Site Generator
-[[https://opensource.org/licenses/MIT][https://img.shields.io/badge/license-MIT-blue.svg]] [[https://img.shields.io/badge/version-0.1.0-green.svg]]
+[[https://opensource.org/licenses/MIT][https://img.shields.io/badge/license-MIT-blue.svg]] [[https://img.shields.io/badge/version-0.2.0-green.svg]]
 
 *Whisper Engine*: Minimalist, Emacs-powered static site generator. No JS. No telemetry. No noise.
 
-Only one-way signal for those who require simplicity.
+One-way signal for those who require simplicity.
 
-Current Whisper Engine version: *0.1.0*
-
-*The Whisper Engine is under development.*
+From simple org files to static sites. In one Emacs window.
 
 ** Features
 
@@ -21,6 +19,9 @@ Current Whisper Engine version: *0.1.0*
 - Paginated index pages
 - Automatic article sorting by date
 - Teaser + thumbnail support
+- Category-based navigation:
+  - Dedicated category pages for each category
+  - Global =categories.html= index
 - Removes the orphaned HTML files
 - SHA256-based incremental builds for speed and integrity
 - Incremental build ~M-x ds/generate-site~
@@ -107,6 +108,7 @@ The following *keywords* configure the exported articles:
 #+DATE: <2025-05-23 Fri>
 #+OPTIONS: toc:nil num:nil \n:t
 #+READY_FOR_DEPLOY: nil
+#+CATEGORY: Article Category
 #+end_src
 
 Only the =#+READY_FOR_DEPLOY: t= articles are exported to HTML and used on the site.
@@ -145,6 +147,8 @@ The relative path to the image in the =:IMAGE:= property is a thumbnail for the 
    #+end_src
 
 4. Serve the =ds/public-article-dir= directory via your web server.
+
+5. Browse =/index.html= for the main feed and =/categories.html= for category navigation.
 
 ** Demo
 
