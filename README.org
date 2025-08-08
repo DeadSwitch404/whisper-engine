@@ -4,7 +4,7 @@
 #+READY_FOR_DEPLOY: t
 
 * Whisper Engine - The Emacs-powered Static Site Generator
-[[https://opensource.org/licenses/MIT][https://img.shields.io/badge/license-MIT-blue.svg]] [[https://img.shields.io/badge/version-0.2.0-green.svg]]
+[[https://opensource.org/licenses/MIT][https://img.shields.io/badge/license-MIT-blue.svg]] [[https://img.shields.io/badge/version-1.0.0-green.svg]]
 
 *Whisper Engine*: Minimalist, Emacs-powered static site generator. No JS. No telemetry. No noise.
 
@@ -107,8 +107,11 @@ The following *keywords* configure the exported articles:
 #+AUTHOR: DeadSwitch | The Cyber Ghost
 #+DATE: <2025-05-23 Fri>
 #+OPTIONS: toc:nil num:nil \n:t
+#+CATEGORY: Article category
+#+TAGS: #WhisperEngine #Emacs #OrgMode #StaticSiteGenerator #DeadSwitch 
+#+IMAGE: /path/to/img.jpg
+#+TEASER: Article teaser
 #+READY_FOR_DEPLOY: nil
-#+CATEGORY: Article Category
 #+end_src
 
 Only the =#+READY_FOR_DEPLOY: t= articles are exported to HTML and used on the site.
@@ -116,14 +119,7 @@ Only the =#+READY_FOR_DEPLOY: t= articles are exported to HTML and used on the s
 The =#+DATE: <2025-05-23 Fri>= keyword affects the order of the articles on the index page.
 Newer articles are on the top.
 
-The following *properties* must be set to the *first headline* of the article Org Files:
-
-#+begin_src org
-:TEASER: Short teaser to show on the index page.
-:IMAGE: /static/img/image.jpg
-#+end_src
-
-The relative path to the image in the =:IMAGE:= property is a thumbnail for the index page.
+The =#+IMAGE:= keyword configures a thumbnail of the article on the index page.
 
 ** Quick Start
 

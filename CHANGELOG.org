@@ -11,6 +11,10 @@ This document tracks all notable changes to Whisper Engine.
 Source: [[https://github.com/deadswitch404/whisper-engine][Whisper Engine on GitHub]]
 Versioning: Follows Semantic Versioning (https://semver.org/)
 
+** <2025-08-08 Fri> - *1.0.0*
+- The =:PROPERTIES:= drawer isn't used anymore.
+- The metadata comes from keywords (like =#+CATEGORY:=)
+- The code is cleaned from unused code.
 ** <2025-08-06 Wed> - *0.2.0*
 - Categories are now parsed from Org keywords.
 - Generated dedicated category pages for each category.

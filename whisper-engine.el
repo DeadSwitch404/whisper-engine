@@ -1,6 +1,6 @@
 ;;
 ;; Whisper Engine - The Ghost Operator Site Generator
-;; v0.2.0
+;; v1.0.0
 ;;
 
 ;;; -----------------------------
@@ -43,7 +43,7 @@
 (defvar ds/base-html-template
   "<!DOCTYPE html>
 <html lang=\"en\">
-<!-- Generated with Whisper Engine v0.2.0 -->
+<!-- Generated with Whisper Engine v1.0.0 -->
 <head>
   <meta charset=\"UTF-8\">
   <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
@@ -108,7 +108,7 @@ Placeholders: title, og-tags, navigation, body-html, footer.")
   (not (string= (ds/file-hash file) hash)))
 
 ;;; -----------------------------
-;;; Extract the keywords and metadata
+;;; Extract the keywords
 ;;; -----------------------------
 
 (defun ds/extract-keywords (file keywords)
@@ -123,26 +123,12 @@ Placeholders: title, og-tags, navigation, body-html, footer.")
   "Get keyword as string."
   (cdr (assoc keyword keywords)))
 
-(defun ds/extract-properties (file)
-  "Extract the properties from the first headline of an org article."
-  (if (file-exists-p file)
-      (with-temp-buffer
-        (insert-file-contents file)
-        (org-mode)
-        (goto-char (point-min))
-        (when (re-search-forward org-heading-regexp nil t)
-          (or (org-entry-properties nil 'standard) '())))))
-
-(defun ds/get-property (property properties)
-  "Get property as string."
-  (cdr (assoc property properties)))
-
 ;;; -----------------------------
 ;;; Find and filter the posts
 ;;; -----------------------------
 
 (defun ds/find-org-posts (dir)
-  "Find all .org articles in a dir structure.."
+  "Recursively find all .org files in DIR."
   (directory-files-recursively dir "\\.org$"))
 
 (defun ds/page-count (file-count)
@@ -151,16 +137,14 @@ Placeholders: title, og-tags, navigation, body-html, footer.")
 
 (defun ds/build-post-metadata (file)
   "Extract metadata and compute EXPORT_URL from the .org file."
-  (let* ((raw-keywords (or (ds/extract-keywords file '("TITLE" "DATE" "CATEGORY")) '()))
+  (let* ((raw-keywords (or (ds/extract-keywords file '("TITLE" "DATE" "CATEGORY" "IMAGE" "TEASER")) '()))
          (keywords (mapcar (lambda (pair) (cons (car pair) (cadr pair))) raw-keywords)) ; fix!
-         (properties (or (ds/extract-properties file) '()))
          (date-str (cdr (assoc "DATE" keywords)))
          (year     (format-time-string "%Y" (org-time-string-to-time date-str)))
          (month    (format-time-string "%m" (org-time-string-to-time date-str)))
          (basename (file-name-base file))
          (export-url (format "%s/%s/%s.html" year month basename)))
     (append keywords
-            properties
             `(("EXPORT_URL" . ,export-url)))))
 
 ;;; -----------------------------
@@ -234,7 +218,7 @@ Placeholders: title, og-tags, navigation, body-html, footer.")
     "General"))
 
 ;;; -----------------------------
-;;; Incremental export logic
+;;; Incremental export
 ;;; -----------------------------
 
 (defun ds/export-article-incremental (file)
@@ -249,7 +233,7 @@ Placeholders: title, og-tags, navigation, body-html, footer.")
                (export-url  (ds/get-keyword "EXPORT_URL" metadata))
                (year        (format-time-string "%Y" (org-time-string-to-time date-str)))
                (month       (format-time-string "%m" (org-time-string-to-time date-str)))
-               (basename    (file-name-base file))
+               (basename    (file-name-base file)) 
                (target-dir  (expand-file-name (format "%s/%s" year month) ds/public-article-dir))
                (target-file (expand-file-name (format "%s.html" basename) target-dir)))
           (message "[Whisper] Exporting changed/new article: %s" file)
@@ -273,8 +257,8 @@ Placeholders: title, og-tags, navigation, body-html, footer.")
                          (ds/patch-src-containers-with-lang inner-html)))))))
             ;; Build OG meta tags
             (let* ((title (ds/get-keyword "TITLE" metadata))
-                   (teaser (ds/get-property "TEASER" metadata))
-                   (image (ds/get-property "IMAGE" metadata))
+                   (teaser (ds/get-keyword "TEASER" metadata))
+                   (image (ds/get-keyword "IMAGE" metadata))
                    (meta `(("og:title" . ,(ds/get-keyword "TITLE" metadata))
                            ("og:description" . ,(or teaser "A DeadSwitch Whisper"))
                            ("og:image" . ,(or image "/static/img/default.jpg"))
@@ -298,12 +282,6 @@ Placeholders: title, og-tags, navigation, body-html, footer.")
             (message "[Whisper] Removing orphaned HTML: %s" full-html)
             (delete-file full-html)))
         (ds/remove-cache-entry file)))))
-
-(defun ds/export-all-ready-articles ()
-  "Export all deploy-ready articles to HTML."
-  (dolist (file (ds/find-org-posts ds/org-article-dir))
-    (when (ds/ready-for-deploy-p file)
-      (ds/export-article file))))
 
 (defun ds/parse-date (date-str)
   (let ((time (org-time-string-to-time date-str)))
@@ -378,8 +356,8 @@ Placeholders: title, og-tags, navigation, body-html, footer.")
                               (date   (ds/get-keyword "DATE" meta))
                               (url    (ds/get-keyword "EXPORT_URL" meta))
                               (category (ds/fix-category-string (ds/get-keyword "CATEGORY" meta)))
-                              (teaser   (ds/get-property "TEASER" meta))
-                              (image    (ds/get-property "IMAGE" meta)))
+                              (teaser   (ds/get-keyword "TEASER" meta))
+                              (image    (ds/get-keyword "IMAGE" meta)))
                           (format "<li class=\"article-list\"><a href=\"/%s\">%s</a><span class=\"date\">%s</span><br />%s%s%s</li>"
                                   url
                                   title
@@ -467,21 +445,6 @@ Placeholders: title, og-tags, navigation, body-html, footer.")
             (if (file-directory-p file)
                 (delete-directory file t)
               (delete-file file))))))))
-
-;;; -----------------------------
-;;; User facing functions
-;;; -----------------------------
-
-(defun whisper/add-site-element ()
-  "Insert Whisper Engine site element interactively, with value prompts."
-  (interactive)
-  (let* ((choices '(("HTML Class" . "#+ATTR_HTML: :class %s")
-                    ("Image Property" . ":IMAGE: %s")
-                    ("Teaser Property" . ":TEASER: %s")))
-         (choice (completing-read "Choose element to insert: " (mapcar #'car choices)))
-         (template (cdr (assoc choice choices)))
-         (value (read-string (format "Enter value for %s: " choice))))
-    (insert (format template value))))
 
 ;;; -----------------------------
 ;;; Generate the site
