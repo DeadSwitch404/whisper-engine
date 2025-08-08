@@ -12,6 +12,8 @@ One-way signal for those who require simplicity.
 
 From simple org files to static sites. In one Emacs window.
 
+[[./assets/whisper-engine.jpg]]
+
 ** Features
 
 - Minimalist: No JS, no telemetry, no noise
