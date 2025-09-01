@@ -1,6 +1,6 @@
 #+TITLE: Whisper Engine Change Log
 #+AUTHOR: DeadSwitch | The Silent Architect
-#+DATE: <2025-08-04 Mon>
+#+DATE: <2025-09-01 Mon>
 #+OPTIONS: toc:nil num:nil \n:t title:nil
 #+EXPORT_FILE_NAME: CHANGELOG
 #+READY_FOR_DEPLOY: t
@@ -11,6 +11,9 @@ This document tracks all notable changes to Whisper Engine.
 Source: [[https://github.com/deadswitch404/whisper-engine][Whisper Engine on GitHub]]
 Versioning: Follows Semantic Versioning (https://semver.org/)
 
+** <2025-09-01 Mon> - *1.0.1*
+- Cleaner incremental export.
+- Mega-function separated logically.
 ** <2025-08-08 Fri> - *1.0.0*
 - The =:PROPERTIES:= drawer isn't used anymore.
 - The metadata comes from keywords (like =#+CATEGORY:=)

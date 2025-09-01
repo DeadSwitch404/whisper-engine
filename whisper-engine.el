@@ -1,6 +1,6 @@
 ;;
 ;; Whisper Engine - The Ghost Operator Site Generator
-;; v1.0.0
+;; v1.0.1
 ;;
 
 ;;; -----------------------------
@@ -43,7 +43,7 @@
 (defvar ds/base-html-template
   "<!DOCTYPE html>
 <html lang=\"en\">
-<!-- Generated with Whisper Engine v1.0.0 -->
+<!-- Generated with Whisper Engine v1.0.1 -->
 <head>
   <meta charset=\"UTF-8\">
   <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
@@ -221,51 +221,71 @@ Placeholders: title, og-tags, navigation, body-html, footer.")
 ;;; Incremental export
 ;;; -----------------------------
 
-(defun ds/export-article-incremental (file)
-  "Export FILE if it's new or changed. Return HTML path or nil if skipped."
+(defun ds/article-needs-export-p (file)
+  "Return non-nil if FILE is new or changed."
   (let* ((current-hash (ds/file-hash file))
-         (entry        (ds/get-cache-entry file))
-         (changed      (or (not entry)
-                           (ds/file-changed-p file (plist-get (cdr entry) :hash)))))
-    (if changed
+         (entry        (ds/get-cache-entry file)))
+    (if (or (not entry)
+            (ds/file-changed-p file (plist-get (cdr entry) :hash)))
+        current-hash
+      nil)))
+
+(defun ds/article-output-paths (file metadata)
+  "Return target directory and target file path for FILE."
+  (let* ((date-str (ds/get-keyword "DATE" metadata))
+         (year     (format-time-string "%Y" (org-time-string-to-time date-str)))
+         (month    (format-time-string "%m" (org-time-string-to-time date-str)))
+         (basename (file-name-base file))
+         (target-dir  (expand-file-name (format "%s/%s" year month) ds/public-article-dir))
+         (target-file (expand-file-name (format "%s.html" basename) target-dir)))
+    (list target-dir target-file)))
+
+(defun ds/export-org-to-html-body (file)
+  "Export FILE to cleaned HTML body string."
+  (with-temp-buffer
+    (insert-file-contents file)
+    (org-mode)
+    (let ((raw-html (org-export-as 'html nil nil t nil)))
+      (with-temp-buffer
+        (insert raw-html)
+        (goto-char (point-min))
+        (let* ((dom (libxml-parse-html-region (point-min) (point-max)))
+               (patched-dom (ds/remove-id-attributes dom))
+               (body (car (dom-by-tag patched-dom 'body)))
+               (body-children (cddr body))
+               (patched-body (ds/fix-image-paths body-children))
+               (inner-html (ds/fix-self-closing-tags
+                            (ds/fix-broken-brs (shr-dom-to-xml patched-body)))))
+          (ds/patch-src-containers-with-lang inner-html))))))
+
+(defun ds/build-og-meta (metadata export-url)
+  "Return OpenGraph meta tags from METADATA and EXPORT-URL."
+  (let ((title (ds/get-keyword "TITLE" metadata))
+        (teaser (ds/get-keyword "TEASER" metadata))
+        (image (ds/get-keyword "IMAGE" metadata)))
+    `(("og:title" . ,title)
+      ("og:description" . ,(or teaser "A DeadSwitch Whisper"))
+      ("og:image" . ,(or image "/static/img/default.jpg"))
+      ("og:url" . ,(format "%s/%s" ds/site-url export-url)))))
+
+(defun ds/export-article-incremental (file)
+  "Export FILE if new/changed. Return target file or nil."
+  (let ((current-hash (ds/article-needs-export-p file)))
+    (if current-hash
         (let* ((metadata    (ds/build-post-metadata file))
-               (date-str    (ds/get-keyword "DATE" metadata))
                (export-url  (ds/get-keyword "EXPORT_URL" metadata))
-               (year        (format-time-string "%Y" (org-time-string-to-time date-str)))
-               (month       (format-time-string "%m" (org-time-string-to-time date-str)))
-               (basename    (file-name-base file)) 
-               (target-dir  (expand-file-name (format "%s/%s" year month) ds/public-article-dir))
-               (target-file (expand-file-name (format "%s.html" basename) target-dir)))
-          (message "[Whisper] Exporting changed/new article: %s" file)
+               (paths       (ds/article-output-paths file metadata))
+               (target-dir  (car paths))
+               (target-file (cadr paths)))
+          (message "[Whisper] Exporting: %s" file)
           (make-directory target-dir t)
-          ;; Export using existing ds/export-article logic but inline:
-          (let ((html-body
-                 (with-temp-buffer
-                   (insert-file-contents file)
-                   (org-mode)
-                   (let* ((raw-html (org-export-as 'html nil nil t nil)))
-                     (with-temp-buffer
-                       (insert raw-html)
-                       (goto-char (point-min))
-                       (let* ((dom (libxml-parse-html-region (point-min) (point-max)))
-                              (patched-dom (ds/remove-id-attributes dom))
-                              (body (car (dom-by-tag patched-dom 'body)))
-                              (body-children (cddr body))
-                              (patched-body (ds/fix-image-paths body-children))
-                              (inner-html (ds/fix-self-closing-tags
-                                           (ds/fix-broken-brs (shr-dom-to-xml patched-body)))))
-                         (ds/patch-src-containers-with-lang inner-html)))))))
-            ;; Build OG meta tags
-            (let* ((title (ds/get-keyword "TITLE" metadata))
-                   (teaser (ds/get-keyword "TEASER" metadata))
-                   (image (ds/get-keyword "IMAGE" metadata))
-                   (meta `(("og:title" . ,(ds/get-keyword "TITLE" metadata))
-                           ("og:description" . ,(or teaser "A DeadSwitch Whisper"))
-                           ("og:image" . ,(or image "/static/img/default.jpg"))
-                           ("og:url" . ,(format "%s/%s" ds/site-url export-url)))))
-              (ds/write-static-page target-file title html-body meta)))
-          ;; Update cache
-          (ds/update-cache-entry file current-hash (format "%s/%s/%s.html" year month basename))
+          (let ((html-body (ds/export-org-to-html-body file))
+                (meta (ds/build-og-meta metadata export-url)))
+            (ds/write-static-page target-file
+                                  (ds/get-keyword "TITLE" metadata)
+                                  html-body
+                                  meta))
+          (ds/update-cache-entry file current-hash export-url)
           target-file)
       (progn
         (message "[Whisper] Skipping unchanged file: %s" file)
