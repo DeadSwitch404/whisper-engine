@@ -7,6 +7,8 @@ This document tracks all notable changes to Whisper Engine.
 Source: [[https://github.com/deadswitch404/whisper-engine][Whisper Engine on GitHub]]
 Versioning: Follows Semantic Versioning (https://semver.org/)
 
+** <2025-11-21 Fri> - *1.1.0*
+- RSS feed generation feature added.
 ** <2025-11-21 Fri> - *1.0.3*
 - CNAME is protected at full site rebuild.
 ** <2025-09-01 Mon> - *1.0.1*

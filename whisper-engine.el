@@ -1,6 +1,6 @@
 ;;
 ;; Whisper Engine - The Ghost Operator Site Generator
-;; v1.0.3
+;; v1.1.0
 ;;
 
 ;;; -----------------------------
@@ -43,7 +43,7 @@
 (defvar ds/base-html-template
   "<!DOCTYPE html>
 <html lang=\"en\">
-<!-- Generated with Whisper Engine v1.0.3 -->
+<!-- Generated with Whisper Engine v1.1.0 -->
 <head>
   <meta charset=\"UTF-8\">
   <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
@@ -217,6 +217,11 @@ Placeholders: title, og-tags, navigation, body-html, footer.")
       category
     "General"))
 
+(defun ds/rss-date (org-date)
+  "Sanitize ORG date format for the RSS feed."
+  (format-time-string "%a, %d %b %Y %H:%M:%S %z"
+                      (org-time-string-to-time org-date)))
+
 ;;; -----------------------------
 ;;; Incremental export
 ;;; -----------------------------
@@ -331,6 +336,49 @@ Placeholders: title, og-tags, navigation, body-html, footer.")
                          title (or og-tags "") ds/html-nav body-html ds/html-footer)))
     (with-temp-file filepath
       (insert html))))
+
+(defun ds/generate-rss-feed (&optional count)
+  "Generate RSS feed with the latest COUNT posts (default 10)."
+  (let* ((posts (cl-subseq (ds/collect-sorted-posts)
+                           0 (min (or count 10)
+                                  (length (ds/collect-sorted-posts)))))
+         (rss-items
+          (mapconcat
+           (lambda (meta)
+             (let* ((title  (ds/get-keyword "TITLE" meta))
+                    (teaser (or (ds/get-keyword "TEASER" meta) ""))
+                    (url    (format "%s/%s"
+                                    ds/site-url
+                                    (ds/get-keyword "EXPORT_URL" meta)))
+                    (date   (ds/get-keyword "DATE" meta))
+                    (pubDate (ds/rss-date date)))
+               (format "
+  <item>
+    <title>%s</title>
+    <link>%s</link>
+    <description><![CDATA[%s]]></description>
+    <pubDate>%s</pubDate>
+    <guid>%s</guid>
+  </item>"
+                       title url teaser pubDate url)))
+           posts
+           "\n"))
+         (rss-xml
+          (format "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<rss version=\"2.0\">
+<channel>
+  <title>The Silent Architect's Whispers</title>
+  <link>%s</link>
+  <description>Latest Whispers From The Silent Architect.</description>
+%s
+</channel>
+</rss>"
+                  ds/site-url
+                  rss-items))
+         (filepath (expand-file-name "rss.xml" ds/public-article-dir)))
+    (with-temp-file filepath
+      (insert rss-xml))
+    (message "[Whisper] RSS feed updated: %s" filepath)))
 
 ;;; -----------------------------
 ;;; Pagination feature
@@ -492,7 +540,9 @@ Placeholders: title, og-tags, navigation, body-html, footer.")
     ;; Rebuild category pages
     (ds/generate-category-pages sorted-posts)
     ;; Rebuild categories overview
-    (ds/generate-categories-page sorted-posts))
+    (ds/generate-categories-page sorted-posts)
+    ;; Generate RSS feed
+    (ds/generate-rss-feed))
   ;; Save updated cache
   (ds/save-cache)
   (message "[Whisper] Incremental build complete."))

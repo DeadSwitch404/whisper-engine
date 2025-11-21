@@ -26,6 +26,7 @@ From simple org files to static sites. In one Emacs window.
 - SHA256-based incremental builds for speed and integrity
 - Incremental build ~M-x ds/generate-site~
 - Full rebuild: ~C-u M-x ds/generate-site~
+- RSS feed generation
 
 ** Requirements
 
