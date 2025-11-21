@@ -1,4 +1,3 @@
-#+TITLE: Whisper Engine Change Log
 #+AUTHOR: DeadSwitch | The Silent Architect
 #+OPTIONS: toc:nil num:nil \n:t title:nil
 
