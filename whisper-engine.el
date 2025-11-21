@@ -1,6 +1,6 @@
 ;;
 ;; Whisper Engine - The Ghost Operator Site Generator
-;; v1.0.1
+;; v1.0.3
 ;;
 
 ;;; -----------------------------
@@ -43,7 +43,7 @@
 (defvar ds/base-html-template
   "<!DOCTYPE html>
 <html lang=\"en\">
-<!-- Generated with Whisper Engine v1.0.1 -->
+<!-- Generated with Whisper Engine v1.0.3 -->
 <head>
   <meta charset=\"UTF-8\">
   <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
@@ -455,7 +455,7 @@ Placeholders: title, og-tags, navigation, body-html, footer.")
   "Delete all generated HTML files in ds/public-article-dir except static/ directory."
   (interactive)
   (let* ((dir ds/public-article-dir)
-         (protected '("static")))
+         (protected '("static" "CNAME")))
     (when (and dir (file-directory-p dir)
                (yes-or-no-p (format "Clean public dir (except %s)?" protected)))
       (dolist (file (directory-files dir t "^[^.].*"))
