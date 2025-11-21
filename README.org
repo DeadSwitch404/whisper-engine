@@ -1,4 +1,3 @@
-#+TITLE: Whisper Engine - The Emacs-powered Static Site Generator
 #+AUTHOR: DeadSwitch | The Silent Architect
 #+OPTIONS: toc:nil num:nil \n:t
 
